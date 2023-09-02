@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { EntityManager, QueryOrder, wrap } from '@mikro-orm/core';
 import { InjectRepository } from '@mikro-orm/nestjs';
 import { EntityRepository } from '@mikro-orm/mysql';
+import { Tag } from '../tag/tag.entity';
 
 import { User } from '../user/user.entity';
 import { Article } from './article.entity';
@@ -154,12 +155,21 @@ export class ArticleService {
       { populate: ['followers', 'favorites', 'articles'] },
     );
     const article = new Article(user!, dto.title, dto.description, dto.body);
+  
+    // Add tags to tagList array
     article.tagList.push(...dto.tagList);
-    user?.articles.add(article);
+  
+    // Create and associate tags with the article
+    for (const tagName of dto.tagList) {
+      const tag = this.em.create(Tag, { tag: tagName });
+      await this.em.persistAndFlush(tag);
+      article.tagList.push(tagName);
+    }
     await this.em.flush();
 
     return { article: article.toJSON(user!) };
   }
+  
 
   async update(userId: number, slug: string, articleData: any): Promise<IArticleRO> {
     const user = await this.userRepository.findOne(
